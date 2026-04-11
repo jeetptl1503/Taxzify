@@ -11,8 +11,10 @@ import {
   AlertTriangle,
   CheckCircle,
   ArrowRight,
+  Save,
 } from 'lucide-react';
 import AppShell from '../../components/ui/AppShell';
+import AuthGuard from '../../components/ui/AuthGuard';
 import InputField from '../../components/ui/InputField';
 import SelectField from '../../components/ui/SelectField';
 import ResultCard from '../../components/ui/ResultCard';
@@ -22,7 +24,8 @@ import {
   generateRecommendations,
   formatINR,
 } from '../../lib/taxEngine';
-import { saveData, loadData } from '../../lib/storage';
+import { addHistory } from '../../lib/storage';
+import { getSession } from '../../lib/auth';
 
 const STEPS = [
   { id: 1, title: 'Basic Info' },
@@ -56,15 +59,12 @@ function num(v) {
 
 export default function AIOptimizerPage() {
   const [step, setStep] = useState(1);
-  const [profile, setProfile] = useState(() => loadData('profile', defaultProfile));
+  const [profile, setProfile] = useState({ ...defaultProfile });
   const [results, setResults] = useState(null);
+  const [saved, setSaved] = useState(false);
 
   const update = useCallback((key, val) => {
-    setProfile((prev) => {
-      const next = { ...prev, [key]: val };
-      saveData('profile', next);
-      return next;
-    });
+    setProfile((prev) => ({ ...prev, [key]: val }));
   }, []);
 
   const analyze = () => {
@@ -96,7 +96,34 @@ export default function AIOptimizerPage() {
     low: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20',
   };
 
+  const saveToHistory = () => {
+    const session = getSession();
+    addHistory({
+      tool: 'AI Tax Optimizer',
+      user: session?.displayName || 'User',
+      inputs: {
+        'Income Type': profile.incomeType,
+        'Gross Income': formatINR(num(profile.grossIncome)),
+        'Age': profile.age,
+        '80C Investments': formatINR(num(profile.deductions80C)),
+        '80D Insurance': formatINR(num(profile.deductions80D)),
+        'NPS 80CCD1B': formatINR(num(profile.deductions80CCD1B)),
+        'Home Loan Interest': formatINR(num(profile.homeLoanInterest)),
+      },
+      outputs: {
+        'Old Regime Tax': formatINR(results.regime.oldRegime.totalTax),
+        'New Regime Tax': formatINR(results.regime.newRegime.totalTax),
+        'Savings': formatINR(results.regime.savings),
+        'Recommended': results.regime.recommended === 'new' ? 'New Regime' : 'Old Regime',
+        'Potential Extra Savings': formatINR(results.recs.totalPotentialSaving),
+      },
+      summary: results.recs.recommendations.map(r => `${r.title}: ${r.description}`).join(' | '),
+    });
+    setSaved(true);
+  };
+
   return (
+    <AuthGuard>
     <AppShell
       title="AI Tax Optimizer"
       description="Answer a few questions about your finances and get personalized, AI-powered tax-saving recommendations."
@@ -514,16 +541,27 @@ export default function AIOptimizerPage() {
               </div>
             </div>
 
-            {/* Re-analyze */}
-            <button
-              onClick={() => setStep(1)}
-              className="flex items-center gap-2 border border-light-border dark:border-dark-border text-light-text-primary dark:text-dark-text-primary font-medium rounded-xl px-5 py-2.5 text-sm transition-colors hover:bg-light-surface dark:hover:bg-dark-card"
-            >
-              <ChevronLeft className="w-4 h-4" /> Modify & Re-analyze
-            </button>
+            {/* Actions */}
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setStep(1); setSaved(false); }}
+                className="flex items-center gap-2 border border-light-border dark:border-dark-border text-light-text-primary dark:text-dark-text-primary font-medium rounded-xl px-5 py-2.5 text-sm transition-colors hover:bg-light-surface dark:hover:bg-dark-card"
+              >
+                <ChevronLeft className="w-4 h-4" /> Modify & Re-analyze
+              </button>
+              <button
+                onClick={saveToHistory}
+                disabled={saved}
+                className={`flex items-center gap-2 font-medium rounded-xl px-5 py-2.5 text-sm transition-colors ${saved ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 cursor-default' : 'bg-accent hover:bg-blue-600 text-white'}`}
+              >
+                <Save className="w-4 h-4" />
+                {saved ? 'Saved to History ✓' : 'Save to History'}
+              </button>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
     </AppShell>
+    </AuthGuard>
   );
 }

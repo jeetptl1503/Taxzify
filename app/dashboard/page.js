@@ -14,6 +14,7 @@ import {
   ArrowRight,
 } from 'lucide-react';
 import AppShell from '../../components/ui/AppShell';
+import AuthGuard from '../../components/ui/AuthGuard';
 
 const modules = [
   {
@@ -84,6 +85,7 @@ const itemVariants = {
 
 export default function DashboardPage() {
   return (
+    <AuthGuard>
     <AppShell title="Dashboard" description="Welcome to Taxzify. Choose a module to get started.">
       {/* Privacy Notice */}
       <motion.div
@@ -136,5 +138,6 @@ export default function DashboardPage() {
         })}
       </motion.div>
     </AppShell>
+    </AuthGuard>
   );
 }

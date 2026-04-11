@@ -3,8 +3,9 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { TrendingUp, PiggyBank, Landmark, BarChart3 } from 'lucide-react';
+import { TrendingUp, PiggyBank, Landmark, BarChart3, Save } from 'lucide-react';
 import AppShell from '../../components/ui/AppShell';
+import AuthGuard from '../../components/ui/AuthGuard';
 import InputField from '../../components/ui/InputField';
 import ResultCard from '../../components/ui/ResultCard';
 import Disclaimer from '../../components/ui/Disclaimer';
@@ -15,6 +16,8 @@ import {
   analyze80CGap,
 } from '../../lib/investmentEngine';
 import { formatINR } from '../../lib/taxEngine';
+import { addHistory } from '../../lib/storage';
+import { getSession } from '../../lib/auth';
 
 const TABS = [
   { id: 'sip', label: 'SIP Calculator', icon: TrendingUp },
@@ -25,24 +28,27 @@ const TABS = [
 
 export default function InvestmentsPage() {
   const [tab, setTab] = useState('sip');
+  const [savedSip, setSavedSip] = useState(false);
+  const [savedNps, setSavedNps] = useState(false);
+  const [saved80c, setSaved80c] = useState(false);
 
   // SIP state
-  const [sipAmount, setSipAmount] = useState(10000);
+  const [sipAmount, setSipAmount] = useState('');
   const [sipReturn, setSipReturn] = useState(12);
   const [sipYears, setSipYears] = useState(10);
 
   // NPS state
   const [npsAge, setNpsAge] = useState(30);
-  const [npsMonthly, setNpsMonthly] = useState(5000);
+  const [npsMonthly, setNpsMonthly] = useState('');
   const [npsReturn, setNpsReturn] = useState(10);
 
   // 80C state
-  const [epf, setEpf] = useState(0);
-  const [ppf, setPpf] = useState(0);
-  const [elss, setElss] = useState(0);
-  const [lic, setLic] = useState(0);
-  const [hlPrincipal, setHlPrincipal] = useState(0);
-  const [tuition, setTuition] = useState(0);
+  const [epf, setEpf] = useState('');
+  const [ppf, setPpf] = useState('');
+  const [elss, setElss] = useState('');
+  const [lic, setLic] = useState('');
+  const [hlPrincipal, setHlPrincipal] = useState('');
+  const [tuition, setTuition] = useState('');
 
   const sipResult = calculateSIPFutureValue({
     monthlyAmount: sipAmount || 0,
@@ -65,7 +71,36 @@ export default function InvestmentsPage() {
     tuitionFees: tuition || 0,
   });
 
+  const saveSipHistory = () => {
+    const session = getSession();
+    addHistory({ tool: 'SIP Calculator', user: session?.displayName || 'User',
+      inputs: { 'Monthly SIP': formatINR(sipAmount || 0), 'Return %': `${sipReturn}%`, 'Duration': `${sipYears} yrs` },
+      outputs: { 'Total Invested': formatINR(sipResult.totalInvested), 'Future Value': formatINR(sipResult.futureValue), 'Wealth Gained': formatINR(sipResult.wealthGained) },
+    });
+    setSavedSip(true);
+  };
+
+  const saveNpsHistory = () => {
+    if (!npsResult) return;
+    const session = getSession();
+    addHistory({ tool: 'NPS Planner', user: session?.displayName || 'User',
+      inputs: { 'Age': npsAge, 'Monthly': formatINR(npsMonthly || 0), 'Return %': `${npsReturn}%` },
+      outputs: { 'Corpus': formatINR(npsResult.futureValue), 'Tax-Free (60%)': formatINR(npsResult.taxFreeWithdrawal), 'Monthly Pension': formatINR(npsResult.estimatedMonthlyPension) },
+    });
+    setSavedNps(true);
+  };
+
+  const save80cHistory = () => {
+    const session = getSession();
+    addHistory({ tool: '80C Analyzer', user: session?.displayName || 'User',
+      inputs: { 'EPF': formatINR(epf || 0), 'PPF': formatINR(ppf || 0), 'ELSS': formatINR(elss || 0), 'LIC': formatINR(lic || 0) },
+      outputs: { 'Utilized': formatINR(gap80C.utilized), 'Gap': formatINR(gap80C.gap), 'Utilization': `${gap80C.utilizationPercent}%` },
+    });
+    setSaved80c(true);
+  };
+
   return (
+    <AuthGuard>
     <AppShell title="Investment Planner" description="Plan your tax-saving investments with calculators and comparisons.">
       <Disclaimer className="mb-6" />
 
@@ -117,6 +152,10 @@ export default function InvestmentsPage() {
                 <div className="h-full bg-emerald-500/60 flex-1" />
               </div>
             </div>
+            <button onClick={saveSipHistory} disabled={savedSip || !sipAmount}
+              className={`w-full flex items-center justify-center gap-2 font-medium rounded-xl px-5 py-2.5 text-sm transition-colors ${savedSip ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 cursor-default' : 'bg-accent hover:bg-blue-600 text-white disabled:opacity-40'}`}>
+              <Save className="w-4 h-4" /> {savedSip ? 'Saved ✓' : 'Save to History'}
+            </button>
           </div>
         </motion.div>
       )}
@@ -139,6 +178,10 @@ export default function InvestmentsPage() {
               <ResultCard label="Tax-Free Withdrawal (60%)" value={formatINR(npsResult.taxFreeWithdrawal)} highlight />
               <ResultCard label="Est. Monthly Pension" value={formatINR(npsResult.estimatedMonthlyPension)} sublabel="Based on 6% annuity rate" />
               <ResultCard label="Yearly Tax Benefit (80CCD1B)" value={formatINR(npsResult.yearlyTaxBenefit)} sublabel={`Total tax saved: ${formatINR(npsResult.totalTaxSaved)}`} />
+              <button onClick={saveNpsHistory} disabled={savedNps || !npsMonthly}
+                className={`w-full flex items-center justify-center gap-2 font-medium rounded-xl px-5 py-2.5 text-sm transition-colors ${savedNps ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 cursor-default' : 'bg-accent hover:bg-blue-600 text-white disabled:opacity-40'}`}>
+                <Save className="w-4 h-4" /> {savedNps ? 'Saved ✓' : 'Save to History'}
+              </button>
             </div>
           )}
         </motion.div>
@@ -234,5 +277,6 @@ export default function InvestmentsPage() {
         </motion.div>
       )}
     </AppShell>
+    </AuthGuard>
   );
 }

@@ -3,8 +3,9 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Calculator, ClipboardCheck, Building2, ExternalLink } from 'lucide-react';
+import { Calculator, ClipboardCheck, Building2, ExternalLink, Save } from 'lucide-react';
 import AppShell from '../../components/ui/AppShell';
+import AuthGuard from '../../components/ui/AuthGuard';
 import InputField from '../../components/ui/InputField';
 import SelectField from '../../components/ui/SelectField';
 import ResultCard from '../../components/ui/ResultCard';
@@ -19,6 +20,8 @@ import {
 } from '../../lib/gstEngine';
 import { GOVERNMENT_SCHEMES, findEligibleSchemes } from '../../lib/subsidyData';
 import { formatINR } from '../../lib/taxEngine';
+import { addHistory } from '../../lib/storage';
+import { getSession } from '../../lib/auth';
 
 const TABS = [
   { id: 'gst', label: 'GST Calculator', icon: Calculator },
@@ -28,10 +31,11 @@ const TABS = [
 
 export default function BusinessPage() {
   const [tab, setTab] = useState('gst');
+  const [savedGst, setSavedGst] = useState(false);
 
   // GST
   const [gstMode, setGstMode] = useState('forward');
-  const [gstAmount, setGstAmount] = useState(100000);
+  const [gstAmount, setGstAmount] = useState('');
   const [gstRate, setGstRate] = useState(18);
   const [isInterState, setIsInterState] = useState(false);
   const [hsnSearch, setHsnSearch] = useState('');
@@ -76,7 +80,19 @@ export default function BusinessPage() {
     return acc;
   }, {});
 
+  const saveGstHistory = () => {
+    const session = getSession();
+    addHistory({
+      tool: 'GST Calculator',
+      user: session?.displayName || 'User',
+      inputs: { 'Mode': gstMode === 'forward' ? 'Add GST' : 'Extract GST', 'Amount': formatINR(gstAmount || 0), 'Rate': `${gstRate}%`, 'Type': isInterState ? 'Inter-State' : 'Intra-State' },
+      outputs: { 'Base Amount': formatINR(gstResult.baseAmount), 'Total GST': formatINR(gstResult.totalGST), 'Total Amount': formatINR(gstResult.totalAmount) },
+    });
+    setSavedGst(true);
+  };
+
   return (
+    <AuthGuard>
     <AppShell title="Business Suite" description="GST tools, compliance tracking, and MSME benefit discovery for businesses.">
       <Disclaimer className="mb-6" />
 
@@ -158,6 +174,10 @@ export default function BusinessPage() {
               <ResultCard label="Total GST" value={formatINR(gstResult.totalGST)} accent />
               <ResultCard label="Total Amount" value={formatINR(gstResult.totalAmount)} highlight />
               <p className="text-xs text-light-text-secondary dark:text-dark-text-secondary">{gstResult.type}</p>
+              <button onClick={saveGstHistory} disabled={savedGst || !gstAmount}
+                className={`w-full flex items-center justify-center gap-2 font-medium rounded-xl px-5 py-2.5 text-sm transition-colors ${savedGst ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 cursor-default' : 'bg-accent hover:bg-blue-600 text-white disabled:opacity-40'}`}>
+                <Save className="w-4 h-4" /> {savedGst ? 'Saved ✓' : 'Save to History'}
+              </button>
             </div>
           </div>
 
@@ -301,5 +321,6 @@ export default function BusinessPage() {
         </motion.div>
       )}
     </AppShell>
+    </AuthGuard>
   );
 }

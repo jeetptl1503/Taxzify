@@ -1,9 +1,9 @@
 // components/ui/AppShell.jsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   LayoutDashboard,
@@ -17,8 +17,12 @@ import {
   X,
   ChevronLeft,
   Shield,
+  Clock,
+  LogOut,
+  User,
 } from 'lucide-react';
 import ThemeToggle from '../ThemeToggle';
+import { getSession, logout } from '../../lib/auth';
 
 const navItems = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -27,11 +31,23 @@ const navItems = [
   { href: '/investments', label: 'Investments', icon: TrendingUp },
   { href: '/business', label: 'Business Suite', icon: Building2 },
   { href: '/deductions', label: 'Deductions', icon: Search },
+  { href: '/history', label: 'History', icon: Clock },
 ];
 
 export default function AppShell({ children, title, description }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [session, setSession] = useState(null);
+
+  useEffect(() => {
+    setSession(getSession());
+  }, []);
+
+  const handleLogout = () => {
+    logout();
+    router.replace('/login');
+  };
 
   return (
     <div className="min-h-screen bg-light-surface dark:bg-black flex">
@@ -68,7 +84,20 @@ export default function AppShell({ children, title, description }) {
         </nav>
 
         {/* Bottom */}
-        <div className="px-4 py-4 border-t border-light-border dark:border-dark-border">
+        <div className="px-4 py-3 border-t border-light-border dark:border-dark-border space-y-3">
+          {session && (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs">
+                <div className="w-6 h-6 rounded-full bg-accent/10 flex items-center justify-center">
+                  <User className="w-3 h-3 text-accent" />
+                </div>
+                <span className="font-medium text-light-text-primary dark:text-dark-text-primary">{session.displayName}</span>
+              </div>
+              <button onClick={handleLogout} className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-light-text-secondary hover:text-red-600 dark:hover:text-red-400 transition-colors" title="Logout">
+                <LogOut className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
           <div className="flex items-center gap-2 text-xs text-light-text-secondary dark:text-dark-text-secondary">
             <Shield className="w-3.5 h-3.5" />
             <span>Data stays on your device</span>
@@ -154,12 +183,17 @@ export default function AppShell({ children, title, description }) {
           </div>
           <div className="flex items-center gap-3">
             <ThemeToggle />
-            <Link
-              href="/"
-              className="text-xs text-light-text-secondary dark:text-dark-text-secondary hover:text-accent transition-colors"
+            {session && (
+              <span className="hidden sm:block text-xs text-light-text-secondary dark:text-dark-text-secondary">
+                {session.displayName}
+              </span>
+            )}
+            <button
+              onClick={handleLogout}
+              className="text-xs text-light-text-secondary dark:text-dark-text-secondary hover:text-red-600 dark:hover:text-red-400 transition-colors"
             >
-              Home
-            </Link>
+              Logout
+            </button>
           </div>
         </header>
 

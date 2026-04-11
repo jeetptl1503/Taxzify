@@ -5,6 +5,7 @@ import { useState, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Search, Filter, Info } from 'lucide-react';
 import AppShell from '../../components/ui/AppShell';
+import AuthGuard from '../../components/ui/AuthGuard';
 import Disclaimer from '../../components/ui/Disclaimer';
 import { DEDUCTION_SECTIONS, formatINR } from '../../lib/taxEngine';
 
@@ -31,6 +32,7 @@ export default function DeductionsPage() {
   }, [search, category, incomeType]);
 
   return (
+    <AuthGuard>
     <AppShell
       title="Deduction Discovery"
       description="Explore every deduction section available under Indian tax law. Filter by your profile to find what you qualify for."
@@ -191,5 +193,6 @@ export default function DeductionsPage() {
         )}
       </div>
     </AppShell>
+    </AuthGuard>
   );
 }

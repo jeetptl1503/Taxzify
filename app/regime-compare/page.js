@@ -3,22 +3,26 @@
 
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { GitCompare, Copy, Check } from 'lucide-react';
+import { GitCompare, Copy, Check, Save } from 'lucide-react';
 import AppShell from '../../components/ui/AppShell';
+import AuthGuard from '../../components/ui/AuthGuard';
 import InputField from '../../components/ui/InputField';
 import Disclaimer from '../../components/ui/Disclaimer';
 import { calculateOldRegimeTax, calculateNewRegimeTax, formatINR, TAX_CONSTANTS } from '../../lib/taxEngine';
+import { addHistory } from '../../lib/storage';
+import { getSession } from '../../lib/auth';
 
 export default function RegimeComparePage() {
-  const [income, setIncome] = useState(1200000);
+  const [income, setIncome] = useState('');
   const [age, setAge] = useState(30);
-  const [d80C, setD80C] = useState(150000);
-  const [d80D, setD80D] = useState(25000);
-  const [d80CCD1B, setD80CCD1B] = useState(0);
-  const [hra, setHra] = useState(0);
-  const [homeLoan, setHomeLoan] = useState(0);
-  const [d80E, setD80E] = useState(0);
+  const [d80C, setD80C] = useState('');
+  const [d80D, setD80D] = useState('');
+  const [d80CCD1B, setD80CCD1B] = useState('');
+  const [hra, setHra] = useState('');
+  const [homeLoan, setHomeLoan] = useState('');
+  const [d80E, setD80E] = useState('');
   const [copied, setCopied] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const oldResult = calculateOldRegimeTax({
     grossIncome: income || 0,
@@ -44,7 +48,32 @@ export default function RegimeComparePage() {
 
   const barMax = Math.max(oldResult.totalTax, newResult.totalTax, 1);
 
+  const saveToHistory = () => {
+    const session = getSession();
+    addHistory({
+      tool: 'Regime Comparison',
+      user: session?.displayName || 'User',
+      inputs: {
+        'Gross Income': formatINR(income || 0),
+        'Age': age,
+        '80C': formatINR(d80C || 0),
+        '80D': formatINR(d80D || 0),
+        'NPS': formatINR(d80CCD1B || 0),
+        'HRA': formatINR(hra || 0),
+        'Home Loan': formatINR(homeLoan || 0),
+      },
+      outputs: {
+        'Old Regime Tax': formatINR(oldResult.totalTax),
+        'New Regime Tax': formatINR(newResult.totalTax),
+        'Savings': formatINR(Math.abs(diff)),
+        'Recommended': recommended === 'new' ? 'New Regime' : recommended === 'old' ? 'Old Regime' : 'Either',
+      },
+    });
+    setSaved(true);
+  };
+
   return (
+    <AuthGuard>
     <AppShell title="Regime Comparison" description="Enter your details to see an instant comparison between Old and New tax regimes.">
       <Disclaimer className="mb-6" />
 
@@ -178,9 +207,21 @@ export default function RegimeComparePage() {
               </div>
             </div>
           </div>
+          {/* Save to History */}
+          <div className="flex justify-end">
+            <button
+              onClick={saveToHistory}
+              disabled={saved || !income}
+              className={`flex items-center gap-2 font-medium rounded-xl px-5 py-2.5 text-sm transition-colors ${saved ? 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 cursor-default' : 'bg-accent hover:bg-blue-600 text-white disabled:opacity-40'}`}
+            >
+              <Save className="w-4 h-4" />
+              {saved ? 'Saved to History ✓' : 'Save to History'}
+            </button>
+          </div>
         </div>
       </div>
     </AppShell>
+    </AuthGuard>
   );
 }
 
